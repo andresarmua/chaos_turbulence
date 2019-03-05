@@ -6,16 +6,14 @@ import matplotlib.pyplot as plt
 from glob import glob
 from os import path
 from scipy import stats
-import math
-import statsmodels.api as sm
-
-#--------This program measures Lambda*T_0 vs Re and Delta_Lambda*tau vs Re --------------- 
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+#--------This program measures Lambda vs steptime vs Re and Delta_Lambda vs steptime --------------- 
 
 
 
 def main():
     
-#    print("--------------------------------------------------------\nThis program measures all Reynolds Numbers, T_0's and tau's from .stats file and calculates lambda and error_lambda from .ftle files and plots error_lambda*tau against Re as well as lambda*T_0 vs Re \n --------------------------------------------------------\n\n")
+#    print("--------------------------------------------------------\nThis program measures the dependence of the Lyapunov exponents and its fluctuations respect to the change in steptime in the FTLE method.\n --------------------------------------------------------\n\n")
     
     
     
@@ -24,23 +22,23 @@ def main():
     dir_name = sys.argv[1]
     # Defines arrays with all needed values
 
-    Reynolds_Numbers    = np.array([])      
-    Reynolds_Errors     = np.array([])
+   # Reynolds_Numbers    = np.array([])      
+   # Reynolds_Errors     = np.array([])
 
-    Klmgrv_Microtimes   = np.array([])
-    Klmgrv_Micro_Errors = np.array([])
+    #Klmgrv_Microtimes   = np.array([])
+    #Klmgrv_Micro_Errors = np.array([])
 
-    T_0s                = np.array([])
-    T_0_Errors          = np.array([]) 
+    #T_0s                = np.array([])
+    #T_0_Errors          = np.array([]) 
     
     Lyapunov_Exponents  = np.array([])
     Lyapunov_Errors     = np.array([])
+    dt                  = np.array([])
+    #Urms                = np.array([])
+    #Urms_Errors         = np.array([])
 
-    Urms                = np.array([])
-    Urms_Errors         = np.array([])
-
-    L                   = np.array([])
-    L_Errors            = np.array([])
+    #L                   = np.array([])
+    #L_Errors            = np.array([])
 
 #---------------------------------stats files process-------------------------------------
 
@@ -50,37 +48,37 @@ def main():
 
     # Creates path and measures number of files
 
-    Path = path.join(dir_name,'*.stats')    # Creates path
-    stats_files = glob(Path)
-    stats_files.sort()                      # Sorts files by numerical/alph order
-    no_files = len(stats_files)             # Gets how many files are processes
+    #Path = path.join(dir_name,'*.stats')    # Creates path
+    #stats_files = glob(Path)
+    #stats_files.sort()                      # Sorts files by numerical/alph order
+    #no_files = len(stats_files)             # Gets how many files are processes
 
 
     
     # Now data from the stats files is processesed and stored into arrays
 
-    for i in range(no_files):
+    #for i in range(no_files):
         
         # Read values from file name
-        (head,tails) = path.split(stats_files[i])
+      #  (head,tails) = path.split(stats_files[i])
         
-        N_values = [2**j for j in range(12)]
-        split_filename = tails.split("_")
-        forcing = split_filename[2]
-        method,y = split_filename[3].split('.')
-        lat_size = int(split_filename[4])
-        if lat_size not in N_values:
-                print('wrong file reading')
-                exit()
-        visc = float(split_filename[5])
+     #   N_values = [2**j for j in range(12)]
+     #   split_filename = tails.split("_")
+     #   dt = float(split_filename[1])
+    #    method,lat = split_filename[2].split('.')
+    #    lat_size = int(lat)
+    #    if lat_size not in N_values:
+    #            print('wrong file reading')
+    #            exit()
+    #    visc = float(split_filename[3])
 
-        # Open file and read
-        filename = open(stats_files[i],'r')
-        ar = np.loadtxt(filename, usecols=(2,8,16))  # Ekin, diss, L
-        ar = ar.transpose()
+     #   # Open file and read
+     #   filename = open(stats_files[i],'r')
+     #   ar = np.loadtxt(filename, usecols=(2,8,16))  # Ekin, diss, L
+     #   ar = ar.transpose()
         
 
-        t_f = np.size(ar,1) - 1
+     #   t_f = np.size(ar,1) - 1
         
         
     
@@ -88,38 +86,38 @@ def main():
         
         # Consider only steady state data
         
-        Ekin   = ar[0,2000:t_f]  
-        diss   = ar[1,2000:t_f]
-        L      = ar[2,2000:t_f]
+     #   Ekin   = ar[0,2000:t_f]  
+     #   diss   = ar[1,2000:t_f]
+     #   L      = ar[2,2000:t_f]
         
         # Calculates all necessary parameters
         
-        epsilon             = np.mean(diss)
-        epsilon_error       = np.std(diss)
-        Li                  = np.mean(L) 
-        Li_error            = np.std(L)
-        U                   = np.mean(np.sqrt(2*Ekin/3))
-        U_error             = np.std(np.sqrt(2*Ekin/3))
-
-        R_L                = U*L/visc  
-        Reynolds_Numbers    = np.append(Reynolds_Numbers,np.mean(R_L))    
-        Reynolds_Errors     = np.append(Reynolds_Errors,np.std(R_L))
-        
-        
-
-        Klmgrv_Microtimes   = np.append(Klmgrv_Microtimes,np.sqrt(visc/epsilon))
-        Klmgrv_Micro_Errors = np.append(Klmgrv_Micro_Errors,(np.sqrt(visc)/2*(epsilon)**(3/2))*epsilon_error) 
-        Log_tau             = np.log10(Klmgrv_Microtimes)    
-        T_0s                = np.append(T_0s, Li/U)
-        T_0_Errors          = np.append(T_0_Errors, (Li*U_error/U**2)+(Li_error/U))
-        
-        Urms                = np.append(Urms, U)
-        Urms_Errors         = np.append(Urms_Errors,U_error)
-
-        L                   = np.append(L, Li)
-        L_Errors            = np.append(L_Errors,Li_error)
-
-
+     #   epsilon             = np.mean(diss)
+     #   epsilon_error       = np.std(diss)
+     #   Li                  = np.mean(L) 
+     #   Li_error            = np.std(L)
+     #   U                   = np.mean(np.sqrt(2*Ekin/3))
+     #   U_error             = np.std(np.sqrt(2*Ekin/3))
+#
+#        R_L                = U*L/visc  
+ #       Reynolds_Numbers    = np.append(Reynolds_Numbers,np.mean(R_L))    
+ #       Reynolds_Errors     = np.append(Reynolds_Errors,np.std(R_L))
+ #       
+ #       
+#
+#        Klmgrv_Microtimes   = np.append(Klmgrv_Microtimes,np.sqrt(visc/epsilon))
+#        Klmgrv_Micro_Errors = np.append(Klmgrv_Micro_Errors,(np.sqrt(visc)/2*(epsilon)**(3/2))*epsilon_error) 
+#        Log_tau             = np.log10(Klmgrv_Microtimes)    
+#        T_0s                = np.append(T_0s, Li/U)
+#        T_0_Errors          = np.append(T_0_Errors, (Li*U_error/U**2)+(Li_error/U))
+#        
+#        Urms                = np.append(Urms, U)
+#        Urms_Errors         = np.append(Urms_Errors,U_error)
+#
+#        L                   = np.append(L, Li)
+#        L_Errors            = np.append(L_Errors,Li_error)
+#
+#
 #---------------------------------ftle files process--------------------------------------
         
 
@@ -133,23 +131,35 @@ def main():
     no_files = len(ftle_files)             # Gets how many files are processes
 
     
-    
 
 
     # Now data from ftle's is processed and stored into arrays
 
 
-    for i in range(no_files):
-        
-        # Open file and read
-        filename2 = open(ftle_files[i],'r')
-        print(filename2)
-        ar = np.loadtxt(filename2, usecols=(0,1))
-        ar = ar.transpose()
-        print(ar[0]) 
-        t_f = np.size(ar[0]) - 1
+    for f in ftle_files:
+        (head,tails) = path.split(f)
+        N_values = [2**j for j in range(12)]
+        split_filename = tails.split("_")
+        dt = np.append(dt,float(split_filename[1]))
+        method,lat = split_filename[2].split('.')
+        lat_size = int(lat)
+        if lat_size not in N_values:
+                print('wrong file reading')
+                exit()
+        visc = float(split_filename[3])
 
-        t_i = 51                  #  ~ equivalent to 15s 
+        # Open file and read
+        filename = open(f,'r')
+        ar = np.loadtxt(filename, usecols=(0,1))
+        ar = ar.transpose()
+        t_f = np.size(ar[0]) - 1
+        trig = False
+        t_i = 0
+        for k in range(len(ar[0])):
+            if int(ar[0,k]) == 15 and trig == False:
+                t_i = k
+                trig == True
+                  
 
         Lyapunov_sample     = ar[1,t_i:t_f]
         Lyapunov_Exponents  = np.append(Lyapunov_Exponents,np.mean(Lyapunov_sample))
@@ -159,12 +169,12 @@ def main():
 #--------------------------------------- set error bars -----------------------
 
 
-    Error_Lyap_T        = Lyapunov_Errors*T_0s + T_0_Errors*Lyapunov_Exponents
+    ''' Error_Lyap_T        = Lyapunov_Errors*T_0s + T_0_Errors*Lyapunov_Exponents
     Error_DeltaL_tau    = Lyapunov_Errors * Klmgrv_Micro_Errors
     Error_DeltaL_T      = Lyapunov_Errors * T_0_Errors 
     Error_DeltaLyap     = (Lyapunov_Errors ** 2)/(Lyapunov_Exponents ** 2)
     Error_Log_L         = Lyapunov_Errors/Lyapunov_Exponents
-    Error_Log_tau       = Klmgrv_Micro_Errors/Klmgrv_Microtimes
+    ErrorFabiola Gianotti_Log_tau       = Klmgrv_Micro_Errors/Klmgrv_Microtimes
 #-------------------------  define fit functions -----------------------------
 
     # fit lambda*T_0 ~ Re^alpha
@@ -338,29 +348,41 @@ def main():
     values12 = np.arange(low12,maxi12,0.001)
 
 
-
+    '''
 #--------------------------- plot everything --------------------
     
     
-    fig,ax =  plt.subplots()
+    params = {'legend.fontsize':'x-large','axes.labelsize':'xx-large','xtick.labelsize':'x-large','ytick.labelsize':'x-large'}
+    plt.rcParams.update(params)
+    plt.rc('text',usetex=True)
+    plt.rc('font',family='serif')
+
+    #plt.style.use('seaborn-dark-palette')
     
-    # plot Lyap vs tau
-    plt.plot(1/Klmgrv_Microtimes, Lyapunov_Exponents, 'o')
+    fig,[ax1,ax2] =  plt.subplots(2,1)
+    
+    # plot Lyap vs dt
+
+   
+    ax1.errorbar(dt, Lyapunov_Exponents, yerr = Lyapunov_Errors, color = '#bc5c47', marker = '.',markerfacecolor = 'None',linestyle = 'None',label ='Data', ecolor = '0.6', capsize = 3, elinewidth = 1, capthick = 1)
+    #plt.xscale('log')
+    #plt.yscale('log')
+    ax1.set_xlabel('$\Delta t$')
+    ax1.set_ylabel('$\lambda$')
+    ax1.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
+    #ax1.set_title('$\lambda \,vs\,\Delta t$')
+    
+    ax2.plot(dt, Lyapunov_Errors, marker = '.', markerfacecolor = 'None', color = '#bc5c47',linestyle = 'None')
+    
+    ax2.set_xlabel('$\Delta t$')
+    ax2.set_ylabel('$\sigma_{\lambda}$')
+    ax2.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
+
+    
+    plt.savefig('/home/andres/Desktop/Lambda_and_error_vs_steptime.png',bbox_inches='tight')
     plt.show()
-
-
-    data = plt.errorbar(Klmgrv_Microtimes, Lyapunov_Exponents, xerr = Klmgrv_Micro_Errors, yerr = Lyapunov_Errors, fmt ='o',label ='Data', ecolor = 'g', capsize = 3, elinewidth = 1, capthick = 1)
-    fit = plt.plot(values12,q(values12),label = 'Linear fit')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('$\\tau$')
-    plt.ylabel('$\lambda$')
-    plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
-    plt.title('$\lambda \, \\tau$')
-    plt.text(0.7,0.2,'$\lambda \, = D tau^{\\beta}$ \n $\\beta= %.2f \pm %.2f$ \n $r = %.2f$ \n D = %.3f+%.3f'%(slope12,std_err12,r_value12,10**intercept12,10**intercept12*np.log(10)*intercept_e12), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes, bbox = dict(facecolor = 'white'))
-    plt.legend(shadow = 'True',loc=2)
-    plt.show()
-
+   
+    '''
     # plot Lyap vs Re and linear fit
     data = plt.errorbar(Reynolds_Numbers, Lyapunov_Exponents*T_0s, xerr = Reynolds_Errors, yerr = Error_Lyap_T, fmt ='o',label ='Data', ecolor = 'g', capsize = 3, elinewidth = 1, capthick = 1)
     fit = plt.plot(values,f(values),label = 'Linear fit')
@@ -520,7 +542,7 @@ def main():
     plt.legend(shadow = 'true',loc=2)
     plt.show()
 
-
+    '''
 
 if __name__ == '__main__':
     main()

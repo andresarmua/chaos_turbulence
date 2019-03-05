@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import numpy as np
 import sys
@@ -8,6 +8,7 @@ from os import path
 from scipy import stats
 import math
 import statsmodels.api as sm
+from cycler import cycler
 
 #--------This program measures Lambda*T_0 vs Re and Delta_Lambda*tau vs Re --------------- 
 
@@ -30,6 +31,9 @@ def main():
     Klmgrv_Microtimes   = np.array([])
     Klmgrv_Micro_Errors = np.array([])
 
+    T_0s_b              = np.array([])
+    T_0_Errors_b        = np.array([]) 
+    
     T_0s                = np.array([])
     T_0_Errors          = np.array([]) 
     
@@ -63,7 +67,7 @@ def main():
         
         # Open file and read
         filename = open(stats_files[i],'r')
-        ar = np.loadtxt(filename, usecols=(2,3,5,6,13))
+        ar = np.loadtxt(filename, usecols=(2,3,5,6,13,1))
         ar = ar.transpose()
         
 
@@ -79,18 +83,19 @@ def main():
         R_L    = ar[1,2000:t_f]
         u      = ar[2,2000:t_f]
         l      = ar[3,2000:t_f]
-        
+        e      = ar[5,2000:t_f]
         # Calculates all necessary parameters
         
         visc            = ar[4,2]
         epsilon         = np.mean(diss)
         epsilon_error   = np.std(diss)
         
-        Li               = np.mean(l) 
-        Li_error         = np.std(l)
+        Li              = np.mean(l) 
+        Li_error        = np.std(l)
         U               = np.mean(u)
         U_error         = np.std(u)
-
+        E               = np.mean(e)
+        E_error         = np.std(e)
         
         Reynolds_Numbers    = np.append(Reynolds_Numbers,np.mean(R_L))    
         Reynolds_Errors     = np.append(Reynolds_Errors,np.std(R_L))
@@ -100,9 +105,13 @@ def main():
         Klmgrv_Microtimes   = np.append(Klmgrv_Microtimes,np.sqrt(visc/epsilon))
         Klmgrv_Micro_Errors = np.append(Klmgrv_Micro_Errors,(np.sqrt(visc)/2*(epsilon)**(3/2))*epsilon_error) 
         
+        T_0s_b              = np.append(T_0s_b, E/epsilon)
+        T_0_Errors_b        = np.append(T_0_Errors_b, (E*epsilon_error/epsilon**2)+(E_error/epsilon))
+        
         T_0s                = np.append(T_0s, Li/U)
         T_0_Errors          = np.append(T_0_Errors, (Li*U_error/U**2)+(Li_error/U))
-        
+
+
         Urms                = np.append(Urms, U)
         Urms_Errors         = np.append(Urms_Errors,U_error)
 
@@ -112,7 +121,6 @@ def main():
 
 #---------------------------------ftle files process--------------------------------------
         
-
 
 
 
@@ -139,7 +147,7 @@ def main():
         
         t_f = np.size(ar,1) - 1
 
-        t_i = 51                  #  ~ equivalent to 15s 
+        t_i = 51                  #  ~ equivalent to 15s, hardcoded, when the ftle's become stable 
 
         Lyapunov_sample     = ar[1,t_i:t_f]
         Lyapunov_Exponents  = np.append(Lyapunov_Exponents,np.mean(Lyapunov_sample))
@@ -155,6 +163,12 @@ def main():
     Error_DeltaL_T      = Lyapunov_Errors * T_0_Errors 
     Error_DeltaLyap     = (Lyapunov_Errors ** 2)/(Lyapunov_Exponents ** 2)
 
+
+# T = E/eps
+
+
+    Error_Lyap_T_b        = Lyapunov_Errors*T_0s_b + T_0_Errors_b*Lyapunov_Exponents
+    Error_DeltaL_T_b      = Lyapunov_Errors * T_0_Errors_b 
 #-------------------------  define fit functions -----------------------------
 
     # fit lambda*T_0 ~ Re^alpha
@@ -162,10 +176,11 @@ def main():
     Log_R  = np.log10(Reynolds_Numbers)
     Log_Ly = np.log10(Lyapunov_Exponents*T_0s)
 
-    Log_E_Ly = np.log10(Lyapunov_Errors * T_0s)
+    Log_Ly_b = np.log10(Lyapunov_Exponents*T_0s_b)
+    Log_E_Ly_b = np.log10(Lyapunov_Errors * T_0s_b)
 
 
-    # WLS fit 
+                        # L/U 
     
     Log_R = sm.add_constant(Log_R) 
     mod_wls = sm.WLS(Log_Ly, Log_R, weights = ((Lyapunov_Exponents*T_0s)/Error_Lyap_T)**2)
@@ -174,6 +189,20 @@ def main():
     intercept_e,std_err = res_wls.bse
     r_value = res_wls.rsquared    
 
+    print('alpha_(L/U) = %.3f +/- %.3f' %(slope,std_err))
+    print('intercept = ', intercept)
+
+                        # E/eps 
+    
+    mod_wls_b = sm.WLS(Log_Ly_b, Log_R, weights = ((Lyapunov_Exponents*T_0s_b)/Error_Lyap_T_b)**2)
+    res_wls_b = mod_wls_b.fit()
+    intercept_b, slope_b = res_wls_b.params
+    intercept_e_b,std_err_b = res_wls_b.bse
+    r_value_b = res_wls_b.rsquared    
+    
+    print('alpha_(E/eps) = %.3f +/- %.3f' %(slope_b,std_err_b))
+    print('intercept = ',intercept_b)
+    
     # linear regression on Delta_Lyap vs Lyap
     
     slope2, intercept2, r_value2, p_value2 , std_err2 = stats.linregress(Lyapunov_Exponents, Lyapunov_Errors)
@@ -184,14 +213,27 @@ def main():
     Log_Ly_Er = np.log10(Lyapunov_Errors*T_0s)
 
 
+    Log_Ly_Er_b = np.log10(Lyapunov_Errors*T_0s_b)
 
     # WLS fit 
-    
+                #L/U
     mod_wls3 = sm.WLS(Log_Ly_Er, Log_R)
     res_wls3 = mod_wls3.fit()
     intercept3, slope3 = res_wls3.params
     intercept_e3,std_err3 = res_wls3.bse
-    r_value3 = res_wls3.rsquared    
+    r_value3 = res_wls3.rsquared   
+                #E/eps
+    mod_wls3_b = sm.WLS(Log_Ly_Er_b, Log_R)
+    res_wls3_b = mod_wls3_b.fit()
+    intercept3_b, slope3_b = res_wls3_b.params
+    intercept_e3_B,std_err3_b = res_wls3_b.bse
+    r_value3_b = res_wls3_b.rsquared   
+
+    print('gamma_L/U = %.3f +/- %.3f' %(slope3,std_err3))
+    
+    print('gamma_E/eps = %.3f +/- %.3f' %(slope3_b,std_err3_b))
+
+
     # linear regression on Delta_Re vs Re
 
 
@@ -203,6 +245,7 @@ def main():
 
     slope5, intercept5, r_value5, p_value5, std_err5 = stats.linregress(T_0s,T_0_Errors)
 
+    print('T_0_prec= %.3f +/- %.3f'%(slope5,std_err5))
     #linear regression on Delta Lyap /Lyap vs Delta_Re/Re
 
 
@@ -241,10 +284,19 @@ def main():
     def f(t):
         return 10**(intercept)*t**(slope)
 
+    def f_b(t):
+        return 10**(intercept_b)*t**(slope_b)
+
     low = np.amin(Reynolds_Numbers)
     maxi = np.amax(Reynolds_Numbers)
     values = np.arange(low,maxi,0.1)
+    intermediate = 10**((np.log10(maxi)+np.log10(low))/2)
+    
+    def f_Ruelle(t):
+        return (f(intermediate))*(intermediate**(-0.5))*(t**(0.5))
 
+    def f_Ruelle_b(t):
+        return (f_b(intermediate))*(intermediate**(-0.5))*(t**(0.5))
 
     def g(t):
         return slope2*t + intercept2 
@@ -252,11 +304,13 @@ def main():
     low2 = np.amin(Lyapunov_Exponents)
     maxi2 = np.amax(Lyapunov_Exponents)
     values2 = np.arange(low2,maxi2,0.001)
-    
+    intermediatei2 = (maxi2 + low2)/2
 
     def h(t):
         return 10**(intercept3)*t**(slope3)
     
+    def h_b(t):
+        return 10**(intercept3_b)*t**(slope3_b)
    
     def i(t):
        return slope4*t + intercept4
@@ -316,59 +370,100 @@ def main():
 #--------------------------- plot everything --------------------
     
     
+    params = {'legend.fontsize':'x-large','axes.labelsize':'xx-large','xtick.labelsize':'x-large','ytick.labelsize':'x-large'}
+    plt.rcParams.update(params)
+    plt.rc('text',usetex=True)
+    plt.rc('font',family='serif')
+    plt.rcParams['axes.prop_cycle'] = cycler(color = 'krgcmyb')
+   #plt.style.use('seaborn-muted')
     fig,ax =  plt.subplots()
 
-    # plot Lyap vs Re and linear fit
-    data = plt.errorbar(Reynolds_Numbers, Lyapunov_Exponents*T_0s, xerr = Reynolds_Errors, yerr = Error_Lyap_T, fmt ='o',label ='Data', ecolor = 'g', capsize = 3, elinewidth = 1, capthick = 1)
-    fit = plt.plot(values,f(values),label = 'Linear fit')
+    # plot Lyap vs Re and linear fit   T_0 = L/U
+    data = plt.errorbar(Reynolds_Numbers, Lyapunov_Exponents*T_0s, xerr = Reynolds_Errors, yerr = Error_Lyap_T, marker ='.', markerfacecolor = 'None',linestyle = 'None',label ='Data',ecolor = '0.6', capsize = 3, elinewidth = 1, capthick = 1)
+    
+    fit_ = plt.plot(values, f(values), color = '#bc5c47',label = 'Linear fit')
+
+    
+    fit3_ = plt.plot(values, f_Ruelle(values), color = '0.7', linestyle = ':', label = 'Ruelle\'s prediction')
+
+
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlabel('Re')
-    plt.ylabel('$\lambda T_0$')
+    plt.xlabel('$Re$')
+    plt.ylabel('$\lambda  \, T_0 \quad (T_0 = \\frac{L}{U})$')
     plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
-    plt.title('$\lambda \, T_0 vs Re$')
-    plt.text(0.7,0.2,'$\lambda \,  T_0 = D Re^{\\alpha}$ \n $\\alpha= %.2f \pm %.2f$ \n $r = %.2f$ \n D = %.3f+%.3f'%(slope,std_err,r_value,10**intercept,10**intercept*np.log(10)*intercept_e), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes, bbox = dict(facecolor = 'white'))
-    plt.legend(shadow = 'True',loc=2)
+    plt.legend(loc=2,frameon = False)
     plt.show()
+   
+
+    # plot Lyap vs Re and linear fit  T_0 = E/eps
+    data = plt.errorbar(Reynolds_Numbers, Lyapunov_Exponents*T_0s_b, xerr = Reynolds_Errors, yerr = Error_Lyap_T_b, marker ='.', markerfacecolor = 'None',linestyle = 'None',label ='Data',ecolor = '0.6', capsize = 3, elinewidth = 1, capthick = 1)
     
+
+    fit2_ = plt.plot(values,f_b(values),color = '#bc5c47',label = 'Linear fit')
+    
+    fit4_ = plt.plot(values,f_Ruelle_b(values),color = '0.7', linestyle = ':', label = 'Ruelle\'s prediction')
+    
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('$Re$')
+    plt.ylabel('$\lambda  \, T_0 \quad (T_0 = \\frac{E}{\\varepsilon})$')
+    plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
+    plt.legend(loc=2,frameon = False)
+    plt.show()
+
     # plot Delta_Lyap vs Lyap and linear fit
     
 
-    data2 = plt.plot(Lyapunov_Exponents,Lyapunov_Errors, 'o',label = 'Data')
-    fit2 = plt.plot(values2,g(values2),label = 'Linear fit')
+    data2 = plt.plot(Lyapunov_Exponents,Lyapunov_Errors, marker ='.', markerfacecolor = 'None',linestyle = 'None',label = 'Data')
+    fit2 = plt.plot(values2,g(values2),color = '#bc5c47',label = 'Linear fit')
     plt.xlabel('$\lambda$')
-    plt.ylabel('$\Delta \lambda$')
+    plt.ylabel('$\sigma_{\lambda}$')
     plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
-    plt.title('$\Delta \lambda \, vs \,  \lambda$')
-    plt.text(0.7,0.2,'$\Delta \lambda  \simeq c_2 \, \lambda$ \n $c_2= %.2f \pm %.2f$ \n $r = %.2f$'%(slope2,std_err2,r_value2), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes, bbox = dict(facecolor = 'white'))
-    plt.legend(shadow = 'True',loc=2)
+    plt.legend(frameon = False,loc=2)
     plt.show()
 
+    
+    
     # plot Delta_Lyap*T_0s vs Re and linear fit
     
     
     
     
-    plt.errorbar(Reynolds_Numbers,Lyapunov_Errors*T_0s, xerr = Reynolds_Errors,yerr = Error_DeltaL_T, fmt= 'o', ecolor = 'g', capsize= 3,elinewidth = 1, capthick = 1, label = 'Data ')
-    fit3 = plt.plot(values,h(values), label = 'Linear fit')
+    plt.errorbar(Reynolds_Numbers,Lyapunov_Errors*T_0s, xerr = Reynolds_Errors,yerr = Error_DeltaL_T, marker ='.', markerfacecolor = 'None',linestyle = 'None',ecolor = '0.6', capsize= 3,elinewidth = 1, capthick = 1, label = 'Data')
+    fit3 = plt.plot(values,h(values), color = '#bc5c47',label = 'Linear fit')
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlabel('Re')
-    plt.ylabel('$\Delta \lambda \, T_0$')
+    plt.xlabel('$Re$')
+    plt.ylabel('$\sigma_{\lambda} \, T_0 \quad (T_0 = \\frac{L}{U})$')
     plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
-    plt.text(0.7,0.15,'$\Delta \lambda T_0  \propto Re^{\gamma}$ \n$\\gamma=%.2f \pm %.2f$ \n $r = %.2f$'%(slope3,std_err3,r_value3), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes,bbox= dict(facecolor = 'white'))
-    plt.title('$\Delta \lambda \, T_0$ vs. Re')
-    plt.legend(shadow = 'True',loc=2)
+    plt.legend(frameon = False,loc=2)
     plt.show()
 
     
+    # plot Delta_Lyap*T_0s vs Re and linear fit
+    
+    
+    
+    
+    plt.errorbar(Reynolds_Numbers,Lyapunov_Errors*T_0s_b, xerr = Reynolds_Errors,yerr = Error_DeltaL_T_b, marker ='.', markerfacecolor = 'None',linestyle = 'None',ecolor = '0.6', capsize= 3,elinewidth = 1, capthick = 1, label = 'Data ')
+    fit3 = plt.plot(values,h_b(values), color = '#bc5c47',label = 'Linear fit')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('$Re$')
+    plt.ylabel('$\sigma_{\lambda} \, T_0 \quad (T_0 = \\frac{E}{\\varepsilon})$')
+    plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
+    plt.legend(frameon = False,loc=2)
+    plt.show()
+
+
     # plot Delta_Lyap*tau vs Re
 
-    plt.errorbar(Reynolds_Numbers,Lyapunov_Errors*Klmgrv_Microtimes, xerr = Reynolds_Errors, yerr = Error_DeltaL_tau, fmt= 'o', ecolor = 'g', capsize = 3, elinewidth = 1, capthick = 1, label = '$\Delta \lambda \, \\tau$ vs. Re ')
-    plt.xlabel('Re')
-    plt.ylabel('$\Delta \lambda \, \\tau$')
+    plt.errorbar(Reynolds_Numbers,Lyapunov_Errors*Klmgrv_Microtimes, xerr = Reynolds_Errors, yerr = Error_DeltaL_tau,marker ='.', markerfacecolor = 'None',linestyle = 'None', ecolor = 'g', capsize = 3, elinewidth = 1, capthick = 1)
+    plt.xlabel('$Re$')
+    plt.ylabel('$\sigma_{\lambda} \, \\tau$')
+    plt.xscale('log')
     plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
-    plt.title('$\Delta \lambda  \, \\tau$ vs. Re')
     plt.show()
 
 
@@ -389,17 +484,15 @@ def main():
 
     # plot Delta(Lyap T) vs Lyap T
     
-    plt.plot(Lyapunov_Exponents*T_0s,Error_Lyap_T,'o', label = 'Data ')
-    fit8 = plt.plot(values8,m(values8), label = 'linear fit')
-    #plt.xscale('log')
-    #plt.yscale('log')
-    plt.xlabel('$\lambda T_0$')
-    plt.ylabel('$\Delta (\lambda \, T_0)$')
-    plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
-    plt.text(0.7,0.2,'$\Delta (\lambda T_0) = A \lambda T_0$ \n A= $%.2f \pm %.2f$ \n $r = %.2f$'%(slope8,std_err8,r_value8), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes,bbox= dict(facecolor = 'white'))
-    plt.title('$\Delta (\lambda \, T_0)$ vs. $\lambda T_0$')
-    plt.legend(shadow = 'True',loc=2)
-    plt.show()
+   # plt.plot(Lyapunov_Exponents*T_0s,Error_Lyap_T, marker ='.', markerfacecolor = 'None',linestyle = 'None', label = 'Data ')
+   # fit8 = plt.plot(values8,m(values8),color = '#bc5c47' ,label = 'Linear fit')
+   # #plt.xscale('log')
+   # #plt.yscale('log')
+   # plt.xlabel('$\lambda \, T_0$')
+   # plt.ylabel('$\sigma_{\lambda T_0}$')
+   # plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
+   # plt.legend(frameon = False,loc=2)
+   # plt.show()
 
 
 
@@ -430,51 +523,53 @@ def main():
 #    plt.show()
     
     # plot Delta_T vs T 
-#    fig5, ax5 = plt.subplots()
-#    ax5.plot(T_0s, T_0_Errors,'o', label = 'Data')
-#    fit5 = ax5.plot(values5,j(values5),label = 'linear fit')
-#    plt.xlabel('$T_0$')
-#    plt.ylabel('$\Delta T_0$')
-#    plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
+    fig5, ax5 = plt.subplots()
+    ax5.plot(Reynolds_Numbers, T_0_Errors/T_0s, marker ='.', markerfacecolor = 'None',linestyle = 'None', label = 'Data')
+   # fit5 = ax5.plot(values5,j(values5),label = 'Linear fit',color = '#bc5c47')
+    plt.xlabel('$T_0$')
+    plt.ylabel('$\sigma_{T_0}$')
+    plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
 #    plt.title('$\Delta T_0 vs T_0$')
 #    plt.text(0.5,0.1,'$\Delta T_0  = m T_0 + b$ \n $ m = %.2f \pm %.2f$ \n $r= %.2f$ \n $b= %.2f$'%(slope5,std_err5,r_value5,intercept5), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes, bbox = dict(facecolor = 'white'))
-#    plt.legend(shadow = 'true',loc=2)
-#    plt.show()
+   # plt.legend(frameon = False,loc=2)
+    plt.show()
+    
+    
+    
+    print('T_0 = %.2f +/- %.2f' %(np.mean(T_0s),np.std(T_0s)))
+    
+    
+    
+    
     
     # plot Delta_Re vs Re 
     #fig4, ax4 = plt.subplots()
-    plt.plot(Reynolds_Numbers, Reynolds_Errors,'o', label = 'Data')
-    fit4 = plt.plot(values,i(values),label = 'Linear fit')
+    plt.plot(Reynolds_Numbers, Reynolds_Errors,marker ='.', markerfacecolor = 'None',linestyle = 'None' , label = 'Data')
+    fit4 = plt.plot(values,i(values),color = '#bc5c47',label = 'Linear fit')
     plt.xlabel('$Re$')
-    plt.ylabel('$\Delta Re$')
+    plt.ylabel('$\sigma_{Re}$')
     plt.grid(which='both', axis='both',linewidth = 0.2, linestyle = '--')
-    plt.title('$\Delta Re \, vs \, Re$')
-    plt.text(0.7,0.2,'$\Delta Re  = c_1 Re$ \n $ c_1 = %.3f \pm %.3f$ \n $r = %.2f$'%(slope4,std_err4,r_value4), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes, bbox = dict(facecolor = 'white'))
-    plt.legend(shadow = 'true',loc=2)
+    plt.legend(frameon = False,loc=2)
     plt.show()
 
     # plot Delta_L_T/L_T vs Delta_R/R
-    plt.plot(Reynolds_Errors/Reynolds_Numbers,Error_Lyap_T/(Lyapunov_Exponents*T_0s), 'o', label= 'Data')
-    fit6 = plt.plot(values6,k(values6),label = 'Linear fit')
-    plt.xlabel('$\\frac{\Delta Re}{Re}$')
-    plt.ylabel('$\\frac{\Delta (\lambda T_0)}{\lambda T_0}$')
-    plt.grid(which = 'both', axis = 'both', linewidth = 0.2, linestyle = '--')
-    plt.title('$\\frac{\Delta\lambda T_0}{\lambda T_0} \, vs \, \\frac{\Delta Re}{Re}$')
-    plt.text(0.7,0.23, '$\\frac{\Delta\lambda T_0}{\lambda T_0} = A \\frac{\Delta Re}{Re}+ B$ \n $A = %.2f \pm %.2f$ \n $r=%.2f$ \n $b = %.2f$'%(slope6, std_err6,r_value6,intercept6), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes, bbox = dict(facecolor = 'white'))
-    plt.legend(shadow = 'true',loc=2)
-    plt.show()
+#    plt.plot(Reynolds_Errors/Reynolds_Numbers,Error_Lyap_T/(Lyapunov_Exponents*T_0s), '.', label= 'Data')
+#    fit6 = plt.plot(values6,k(values6),label = 'Linear fit')
+#    plt.xlabel('$\\frac{\sigma_{Re}}{Re}$')
+#    plt.ylabel('$\\frac{\sigma{\lambda T_0})}{\lambda T_0}$')
+#    plt.grid(which = 'both', axis = 'both', linewidth = 0.2, linestyle = '--')
+#    plt.legend(shadow = 'true',loc=2)
+#    plt.show()
 
 
     
     # plot Delta_L/L vs Delta_R/R
-    plt.plot(Reynolds_Errors/Reynolds_Numbers,Lyapunov_Errors/Lyapunov_Exponents, 'o', label= 'Data')
-    fit6 = plt.plot(values6,p(values6),label = 'Linear fit')
-    plt.xlabel('$\\frac{\Delta Re}{Re}$')
-    plt.ylabel('$\\frac{\Delta (\lambda)}{\lambda}$')
+    plt.plot(Reynolds_Errors/Reynolds_Numbers,Lyapunov_Errors/Lyapunov_Exponents, marker ='.', markerfacecolor = 'None',linestyle = 'None', label= 'Data')
+    fit6 = plt.plot(values6,p(values6),color = '#bc5c47',label = 'Linear fit')
+    plt.xlabel('$\\frac{\sigma_{Re}}{Re}$')
+    plt.ylabel('$\\frac{\sigma_{\lambda}}{\lambda}$')
     plt.grid(which = 'both', axis = 'both', linewidth = 0.2, linestyle = '--')
-    plt.title('$\\frac{\Delta\lambda}{\lambda} \, vs \, \\frac{\Delta Re}{Re}$')
-    plt.text(0.7,0.23, '$\\frac{\Delta\lambda}{\lambda} = A \\frac{\Delta Re}{Re}+ B$ \n $A = %.2f \pm %.2f$ \n $r=%.2f$ \n $b = %.2f$'%(slope11, std_err11,r_value11,intercept11), horizontalalignment = 'center', verticalalignment = 'center',transform = ax.transAxes, bbox = dict(facecolor = 'white'))
-    plt.legend(shadow = 'true',loc=2)
+    plt.legend(frameon = False,loc=2)
     plt.show()
 
 

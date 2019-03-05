@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,6 +43,7 @@ def main():
 
     markers_seed        = np.array([])
     markers_lattice     = np.array([])
+    leg                 = np.array([])
 #---------------------------------stats files process-------------------------------------
 
 
@@ -106,13 +107,14 @@ def main():
         epsilon_error   = np.std(diss)
 
         seeds           = np.append(seeds,seed)
-        fmts = ['bv','gv','rv','cv','mv','yv','bo','go','ro','co','mo','yo','bo']
+        fmts    = ['*','v','s','o','D','X','p','P','<','^','H','>','8']
         for j in range(12):
             if 2**j == lat_size:
                 k = j
 
         markers_seed    = np.append(markers_seed, fmts[seed])
         markers_lattice = np.append(markers_lattice, fmts[k])
+        leg             = np.append(leg,N_values[k])
         L               = np.append(L,np.mean(l)) 
         L_error         = np.append(L_error, np.std(l))
         U               = np.append(U,np.mean(u))
@@ -173,8 +175,15 @@ def main():
 
 
     
+    params = {'legend.fontsize':'x-large','axes.labelsize':'xx-large','xtick.labelsize':'x-large','ytick.labelsize':'x-large'}
+    
+    plt.rcParams.update(params)
+    plt.rc('text',usetex=True)
+    plt.rc('font',family='serif')
 
- 
+    plt.style.use('seaborn-dark-palette')
+
+
     #plt.plot(Lyapunov_Exponents, Lyapunov_Errors, 'o', label = 'ErrorDependence')
     #plt.xlabel('<\lambda>')
     #plt.ylabel('\Delta \lambda')
@@ -182,57 +191,74 @@ def main():
     #plt.ylabel('$\Delta \lambda$')
     #plt.show()
 
-    for x,y,m in zip(Lyapunov_Exponents,Lyapunov_Errors,markers_lattice):
-        plt.plot(x,y,m,label = 'Error Dependence')
-
-    plt.grid(which ='both', axis = 'both', linewidth = 0.2, linestyle='--')
-    plt.xlabel('<\lambda>')
-    plt.ylabel('\Delta \lambda')
-    plt.show()
-    
-    #plt.plot(Reynolds_Numbers,Reynolds_Errors,'o',label = 'Error Dependence')
-    #plt.xscale('log')
-    #plt.yscale('log')
-    #plt.xlabel('Re')
-    #plt.ylabel('$\Delta Re$')
-    #plt.show()
-    
-    for x,y,m in zip(Lattice_Sizes,Lyapunov_Errors*Klmgrv_Microtimes,markers_seed):
-        plt.plot(x,y, m,label = 'Error Dependence')
-
+    for x,y,er,m in zip(Lattice_Sizes,Lyapunov_Exponents, Lyapunov_Errors, markers_seed):
+        plt.errorbar(x,y,yerr = er,label = 'Error Dependence',color = '#bc5c47',marker = m, ecolor = '0.6',capsize = 3, elinewidth = 1, capthick = 1)
     plt.xscale('log',basex=2)
-    #plt.yscale('log')
-    plt.xlabel('N')
-    plt.ylabel('$\Delta \lambda \\tau$')
     plt.grid(which ='both', axis = 'both', linewidth = 0.2, linestyle='--')
-    plt.title('Error dependence on Lattice')
+    plt.xlabel('$N$')
+    plt.ylabel('$\lambda$')
     plt.show()
+
+   # plt.plot(Lattice_Sizes,Reynolds_Numbers,'.',color = '#bc5c47',label = 'Error Dependence')
+   # plt.xscale('log',basex = 2)
+   #   #plt.yscale('log')
+   # plt.xlabel('$N$')
+   # plt.ylabel('$Re$')
+   # plt.show()
+    
+    
+    trigger = 14*[False]
+    for x,y,m,l in zip(Reynolds_Numbers,Lyapunov_Exponents,markers_lattice,leg):
+        h = int(np.log2(l))
+        if trigger[h] == False:
+            plt.plot(x,y,m,color = '#bc5c47',label='$N = %i$' %l)
+            trigger[h] = True
+        else:
+            plt.plot(x,y,m,color = '#bc5c47')
+    #plt.xscale('log')
+    plt.grid(which ='both', axis = 'both', linewidth = 0.2, linestyle='--')
+    plt.xlabel('$Re$')
+    plt.ylabel('$\lambda$')
+    plt.legend()
+    plt.show()
+
+    
+#    for x,y,m in zip(Lattice_Sizes,Lyapunov_Errors*Klmgrv_Microtimes,markers_seed):
+ #       plt.plot(x,y, m,label = 'Error Dependence',color = '#bc5c47')
+
+ #   plt.xscale('log',basex=2)
+    #plt.yscale('log')
+ #   plt.xlabel('N')
+#    plt.ylabel('$\Delta \lambda \\tau$')
+ #   plt.grid(which ='both', axis = 'both', linewidth = 0.2, linestyle='--')
+ #   plt.title('Error dependence on Lattice')
+ #   plt.show()
 
 
     for x,y,m in zip(Lattice_Sizes,Lyapunov_Errors*T_0s,markers_seed):
-        plt.plot(x,y, m,label = 'Error Dependence')
+        plt.plot(x,y, m,label = 'Error Dependence', color = '#bc5c47')
 
     #plt.errorbar(Lattice_Sizes,Lyapunov_Errors*T_0s, yerr = Lyapunov_Errors*T_0_Errors, fmt= markers, ecolor = 'g',capsize =3, elinewidth = 1, capthick = 1,label = 'Error Dependence')
-   # plt.plot(Lattice_Sizes,Lyapunov_Errors*T_0s, 'o', label = 'Error Dependence')
+    #plt.plot(Lattice_Sizes,Lyapunov_Errors*T_0s, 'o', label = 'Error Dependence')
     plt.xscale('log',basex=2)
     #plt.yscale('log')
-    plt.xlabel('N')
-    plt.ylabel('$\Delta \lambda T_0$')
+    plt.xlabel('$N$')
+    plt.ylabel('$\sigma_{\lambda}\, T_0$')
     plt.grid(which ='both', axis = 'both', linewidth = 0.2, linestyle='--')
-    plt.title('Error dependence on Lattice')
+    #plt.title('Error dependence on Lattice')
     plt.show()
 
-    for x,y,m in zip(Lattice_Sizes,Lyapunov_Errors/Lyapunov_Exponents,markers_seed):
-        plt.plot(x,y,m,label = 'Error Dependence')
+   # for x,y,m in zip(Lattice_Sizes,Lyapunov_Errors/Lyapunov_Exponents,markers_seed):
+   #     plt.plot(x,y,m,color= '#bc5c47',label = 'Error Dependence')
 
     #plt.plot(Lattice_Sizes,Lyapunov_Errors/Lyapunov_Exponents, 'o', label = 'Error Dependence')
-    plt.xscale('log',basex = 2)
+  #  plt.xscale('log',basex = 2)
     #plt.yscale('log')
-    plt.xlabel('N')
-    plt.ylabel('$\\frac{\Delta \lambda}{\lambda}$')
-    plt.grid(which ='both', axis = 'both', linewidth = 0.2, linestyle='--')
-    plt.title('Relative error vs Lattice Size')
-    plt.show()
+  #  plt.xlabel('$N$')
+  #  plt.ylabel('$\\frac{\sigma_{\lambda}}{\lambda}$')
+  #  plt.grid(which ='both', axis = 'both', linewidth = 0.2, linestyle='--')
+    #plt.title('Relative error vs Lattice Size')
+   # plt.show()
 
 
 
