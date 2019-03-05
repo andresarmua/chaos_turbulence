@@ -9,31 +9,30 @@ from scipy.stats import entropy
 import matplotlib.patches as mpatches
 from cycler import cycler
 import os
-
 def main():
 
 
-    filename = sys.argv[1] 
-    (head,tails) = os.path.split(filename)
-    
-    N_values = [2**j for j in range(12)]
-    split_filename = tails.split("_")
-    forcing = split_filename[2]
-    method = split_filename[3]
+    filename = sys.argv[1]
+    (head,tail) = os.path.split(filename)
+    split_filename = tail.split("_")
+    forcing =split_filename[2]
+    (method,HD_MHD) = split_filename[3].split(".")
     lat_size = int(split_filename[4])
-    if lat_size not in N_values:
-            exit()
-    (visc1,visc2,exten) = split_filename[5].split(".")
-    visc = float(visc1 + "." + visc2)
-    print(visc)
+    visc = float(split_filename[5])
     arch = open(filename,'r')
-    a = np.loadtxt(arch, usecols=(3))
+    a = np.loadtxt(arch, usecols=(2,16))
     a = a.transpose()
 
     
-    N = len(a)
-    a = a[1500:N:5]
-    N = len(a)    
+    N = len(a[0])
+    Energy = 2*a[0,1500:N:10]/3
+    U = np.sqrt(Energy)
+    Len = a[1,1500:N:10]
+    
+    N = len(Energy)     
+    Re = (U*Len)/visc
+    a = Re
+
     mean = np.mean(a)
     std_dev = np.std(a)
     hist, bin_edge= np.histogram(a, bins = 'auto', density = 'True')
@@ -72,15 +71,13 @@ def main():
     stepp = (maximum - minimum)/1000
     
     
-    
-    params = {'legend.fontsize':'x-large','axes.labelsize':'xx-large','xtick.labelsize':'x-large','ytick.labelsize':'x-large'}
+    params = {'legend.fontsize':'x-large','axes.labelsize':'xx-large','xtick.labelsize':'x-large','ytick.labelsize' : 'x-large'}
     plt.rcParams.update(params)
-   
     plt.rc('text',usetex=True)
     plt.rc('font',family='serif')
-   
     plt.rcParams['axes.prop_cycle'] = cycler(color = 'krgcmyb')
    #plt.style.use('seaborn-muted')
+    
     fig, ax = plt.subplots()
     b = np.arange(minimum,maximum,stepp) 
     
@@ -88,11 +85,10 @@ def main():
     gaussian = ax.plot(b,f(b),'k-', label = 'gaussian')
     
     histogram = ax.hist(a,bins='auto',density = 'True',color = '#bc5c47',label= 'histogram')
-    ax.set_xlabel('$Re$')
-    ax.set_ylabel('Probability density')       # title = 'FTLE ND \n $\\nu=%.3f$  $N^3=%i^3$' %(visc,lat_size))
+    ax.set(xlabel = '$Re$', ylabel = 'probability density')# title = 'FTLE ND \n $\\nu=%.3f$  $N^3=%i^3$' %(visc,lat_size))
    
-    plt.text(0.78,0.75,'$n$ = %i ' %(N), horizontalalignment='left', verticalalignment='center',fontsize = 'x-large', transform=ax.transAxes, bbox=dict(facecolor='white',edgecolor = 'none'))
-    plt.legend(frameon=False, loc = 1)
+    plt.text(0.78,0.75,'$n$ = %i ' %(N), horizontalalignment='left', verticalalignment='center', fontsize = 'x-large',transform=ax.transAxes, bbox=dict(facecolor='white',edgecolor = 'none'))
+    plt.legend(frameon=False,loc = 1)
     plt.show()
 
 

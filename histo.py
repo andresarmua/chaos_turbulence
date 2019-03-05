@@ -14,13 +14,18 @@ def main():
 
 
     filename = sys.argv[1]
+    (head,tail) = os.path.split(filename)
+    split_filename = tail.split("_")
+    forcing =split_filename[2]
+    (method,HD_MHD) = split_filename[3].split(".")
+    lat_size = int(split_filename[4])
+    visc = float(split_filename[5])
     arch = open(filename,'r')
     a = np.loadtxt(arch, usecols=(1))
     L = len(a)
-    a = a[299:L]
-    L = len(a)
     
-    print  'length of data = ', L
+    print  'length of data = ', L-49
+    a = a[49:L]
     lyapunov = np.mean(a)
     std_dev = np.std(a)
     hist, bin_edge= np.histogram(a, bins = 'auto', density = 'True')
@@ -76,12 +81,11 @@ def main():
     gaussian = ax.plot(b,f(b),'k-', label = 'gaussian')
     
     histogram = ax.hist(a,bins='auto',density = 'True',label= 'histogram',color = '#bc5c47')
-    ax.set_xlabel('$\\tilde{\lambda}$')
-    ax.set_ylabel('Probability density')# title = ' %s %s \n $\\nu=%.3f$  $N^3$' %(method,forcing,visc,lat_size))
+    ax.set(xlabel = '$\\tilde{\lambda}$', ylabel = 'Probability density')# title = ' %s %s \n $\\nu=%.3f$  $N^3$' %(method,forcing,visc,lat_size))
    
     #first_legend = ax.legend(loc=1)
    # axi = plt.gca().add_artist(first_legend)
-    plt.text(0.78,0.75,'$n = %i$ ' %(N), horizontalalignment='left', verticalalignment='center',fontsize = 'x-large', transform=ax.transAxes, bbox=dict(edgecolor= 'none',facecolor='white'))
+    plt.text(0.78,0.75,'$n = %i$ ' %(N), horizontalalignment='left', verticalalignment='center', fontsize = 'x-large',transform=ax.transAxes, bbox=dict(edgecolor= 'none',facecolor='white'))
     plt.legend(frameon = False,loc = 1)
     plt.show()
 
